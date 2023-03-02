@@ -1,0 +1,182 @@
+---
+title: "Introduction to scDE"
+author: "Christoph Hafemeister"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    code_folding: show
+    highlight: pygments
+    df_print: kable
+  pdf_document:
+    toc: yes
+---
+
+```{r, include = FALSE}
+set.seed(11946992)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+s <- readRDS(file = 'scratch/10k_pbmc_seurat.Rds')
+```
+
+```{r setup}
+library(dplyr)
+library(Seurat)
+library(scDE)
+library(ggplot2)
+library(ggrepel)
+```
+
+## Introduction
+
+This document is an introduction to the `scDE` R package - a package that provides wrapper functions to use bulk RNA-seq differential expression methods with single-cell data.
+
+All `scDE` functionality is contained in one function - `findDE()`. It has one mandatory input argument: `object`, which may be of class
+
+* `Seurat` - the count matrix will be extracted from the `'RNA'` assay
+* `SingleCellExperiment` - the count matrix will be extracted via `counts()`
+* `dgCMatrix` - sparse matrix of the `Matrix` package
+* `matrix`
+
+To indicate the cell group memberships, you have several options, depending on input type:
+
+* `Seurat` - in the object via `Idents(object)`, or use the `group_column` argument
+* `SingleCellExperiment` - in the object via `colLables(object)`, or use the `group_column` argument
+* `dgCMatrix`, or `matrix` - use the `meta_data` and `group_column` arguments
+
+`scDE` uses bulk RNA-seq DE methods and relies on replicates. If no true replicates are available, it assigns cells to pseudo-replicates. However, if replicates are available in the input, the `replicate_column` argument can be used to indicate where to find the labels.
+
+To tell `findDE()` which cell groups to compare, use the `compare` argument. We provide several ways to set up the comparisons that will be tested:
+
+* `'each_vs_rest'`, the default, does multiple comparisons, one per group vs all remaining cells
+* `'all_vs_all'`, also does multiple comparisons, covering all group pairs
+* a length one character vector, e.g. `'MONOCYTES'`, does one comparison between that group and the remaining cells
+* a length two character vector, e.g. `c('T CELLS', 'B CELLS')`, does one comparison between those two groups
+* a list of length two, e.g. `list(c('T CELLS', 'B CELLS'), c('MONOCYTES'))`, does one comparison after combining groups
+
+Finally, there are currently three DE methods supported
+
+* `'edger'` uses `edgeR::glmQLFit`
+* `'deseq'` uses `DESeq2::DESeq(test = 'Wald')`
+* `'limma'` uses `limma::eBayes(trend = TRUE, robust = TRUE)`
+
+
+For complete details, consult the package documentation: `?scDE::findDE`
+
+In the examples below, we use a Seurat object `s` with cell type labels in the identity slot (`Idents(s)`).
+
+```{r, fig.width=5, fig.height=3, out.width='50%'}
+show(s)
+table(Idents(s))
+DimPlot(s)
+```
+
+## Testing for differential expression
+
+### Each group vs rest (default)
+
+```{r}
+de_results <- findDE(object = s)
+```
+
+In this case, the output is one large data frame with the results for all three comparisons for all genes in the input. The first column always shows the feature. The last columns are `'group1'` and `'group2'` and indicate the comparison that was done. The remaining columns are specific to the test method that was used, but always include some form of p-value, FDR-adjusted p-value, statistic, mean expression, and log-foldchange.
+
+There are as many rows per comparison, as there were genes in the input
+```{r}
+table(paste(de_results$group1, de_results$group2, sep = ' vs '))
+```
+
+The order of the output is by comparison, then by gene (as in input)
+```{r}
+head(de_results)
+```
+
+```{r, fig.width = 10, fig.height=3.3, out.width='100%'}
+de_results$comp <- paste(de_results$group1, de_results$group2, sep = ' vs ')
+de_results$comp <- factor(de_results$comp, levels = unique(de_results$comp))
+ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+  geom_point(shape = 16, alpha = 0.2) +
+  facet_wrap(~ comp, scales = 'free')
+```
+
+For a given comparison, the genes higher in the first group will be assigned negative fold changes. Below we mark the top 5 per comparison.
+
+```{r, fig.width = 10, fig.height=3.3, out.width='100%'}
+top_DE <- filter(de_results, logFC < 0) %>%
+      group_by(group1) %>%
+      arrange(PValue, -F, .by_group = TRUE) %>%
+      mutate(feature_rank = 1:dplyr::n()) %>%
+      slice_min(order_by = feature_rank, n = 5) 
+ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+  geom_point(shape = 16, alpha = 0.2) +
+  geom_point(data = top_DE, shape = 16, size = 2, color = 'deeppink') +
+  geom_text_repel(data = top_DE, aes(label = feature)) +
+  facet_wrap(~ comp, scales = 'free')
+```
+
+### One group vs another
+
+```{r}
+de_results <- findDE(object = s, compare = c('T CELLS', 'B CELLS'))
+```
+
+```{r, fig.width = 3, fig.height=3.3, out.width='30%'}
+top_DE <- filter(de_results, logFC != 0) %>%
+  group_by(sign(logFC)) %>%
+  arrange(PValue, -F, .by_group = TRUE) %>%
+  slice_head(n = 5)
+ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+  geom_point(shape = 16, alpha = 0.2) +
+  geom_point(data = top_DE, shape = 16, size = 2, color = 'deeppink') +
+  geom_text_repel(data = top_DE, aes(label = feature)) +
+  ggtitle('T CELLS vs B CELLS')
+```
+
+### Non-Seurat input
+
+An example of a count matrix and meta data as input.
+```{r}
+# extract the counts and meta data from our example Seurat object
+counts <- s$RNA@counts
+meta_data <- data.frame(celltype = Idents(s))
+de_results <- findDE(object = counts, meta_data = meta_data, 
+                     group_column = 'celltype', compare = c('T CELLS', 'B CELLS'))
+head(de_results)
+```
+
+
+## Finding markers
+
+To quickly find all marker features for a given object, `scDE` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for negative fold-change and orders the results by p-value and statistic. 
+
+```{r}
+marker_results <- FindAllMarkers2(object = s)
+filter(marker_results, feature_rank < 6)
+```
+
+## Parallelization
+
+`scDE` supports parallelization via the `future` package. 
+For example, to use the multicore strategy with 12 workers you may set
+`future::plan(strategy = 'future::multicore', workers = 12)`.
+See more details at the [`future` website](https://future.futureverse.org)
+
+Note that every comparison is run single-threaded, but multiple comparisons will be done in parallel.
+
+## Progress updates
+
+For reporting progress updates, `scDE` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
+See more details at the [`progressr` website](https://progressr.futureverse.org)
+
+## Session info 
+
+> **_NOTE:_** This document was generated with `scDE` version `r packageVersion(pkg = 'scDE')`
+
+Session info
+```{r}
+sessionInfo()
+```

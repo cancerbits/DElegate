@@ -62,15 +62,19 @@ make_pb <- function(counts, grouping, replicate_label) {
 }
 
 #' @importFrom magrittr %>%
-run_de_one_comp <- function(counts, grouping, replicate_label, comp, method, verbosity) {
+#' @importFrom rlang .data
+run_de_one_comp <- function(counts, grouping, replicate_label, comp, method, order_results, verbosity) {
   this_grouping <- as.numeric(grouping %in% comp[[3]]) + as.numeric(grouping %in% comp[[4]])*2
   this_grouping <- factor(this_grouping, levels = c(1, 2))
   levels(this_grouping) <- c(comp[[1]], comp[[2]])
-  run_de_simple(counts, this_grouping, replicate_label, method, verbosity) %>%
+  res <- run_de_simple(counts, this_grouping, replicate_label, method, order_results, verbosity) %>%
     dplyr::mutate(group1 = factor(comp[[1]]), group2 = factor(comp[[2]]))
+  return(res)
 }
 
-run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, method, verbosity) {
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
+run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, method, order_results, verbosity) {
   # keep track of progress if progressr package is installed
   p <- function(x) {
     message(x)
@@ -83,17 +87,18 @@ run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, m
   if (requireNamespace("future.apply", quietly = TRUE)) {
     res_list <- future.apply::future_lapply(comparisons, function(comp) {
       p(sprintf('Comparing %s vs %s', comp[[1]], comp[[2]]))
-      run_de_one_comp(counts, grouping, replicate_label, comp, method, verbosity)
+      run_de_one_comp(counts, grouping, replicate_label, comp, method, order_results, verbosity)
     }, future.seed = NA)
   } else {
     message('Consider installing the "future.apply" package for parallelization')
     res_list <- lapply(comparisons, function(comp) {
       p(sprintf('Comparing %s vs %s', comp[[1]], comp[[2]]))
-      run_de_one_comp(counts, grouping, replicate_label, comp, method, verbosity)
+      run_de_one_comp(counts, grouping, replicate_label, comp, method, order_results, verbosity)
     })
   }
 
-  return(dplyr::bind_rows(res_list))
+  res <- dplyr::bind_rows(res_list)
+  return(res)
 }
 
 # helper to set up list of comparisons

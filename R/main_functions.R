@@ -10,6 +10,9 @@
 #' to use as replicate indicator; default is NULL
 #' @param compare Specifies which groups to compare - see details; default is 'each_vs_rest'
 #' @param method DE method to use; default is edger
+#' @param order_results Whether to order the results by comparison, then by p-value, then
+#' by test statistic. If FALSE, results will be ordered by comparison only, genes remain
+#' in the order as in the input. Default is TRUE
 #' @param verbosity Integer controlling how many messages the function prints;
 #' 0 is silent, 1 prints some messages, 2 prints more messages
 #' @returns A data frame of results
@@ -33,6 +36,7 @@ findDE <- function(object,
                    replicate_column = NULL,
                    compare = 'each_vs_rest',
                    method = 'edger',
+                   order_results = TRUE,
                    verbosity = 1) {
   # extract the data from the input object
   de_data <- get_data(object, meta_data, group_column, replicate_column, verbosity)
@@ -46,6 +50,7 @@ findDE <- function(object,
                      replicate_label = de_data$replicate_label,
                      comparisons = comparisons,
                      method = method,
+                     order_results = order_results,
                      verbosity = verbosity)
 }
 
@@ -73,23 +78,24 @@ FindAllMarkers2 <- function(object,
                 replicate_column = replicate_column,
                 compare = 'each_vs_rest',
                 method = method,
+                order_results = FALSE,
                 verbosity = verbosity)
   if (method == 'edger') {
-    res <- dplyr::filter(res, .data$logFC < 0) %>%
+    res <- dplyr::filter(res, .data$logFC > 0) %>%
       dplyr::group_by(.data$group1) %>%
       dplyr::arrange(.data$group1, .data$PValue, -.data$F, .by_group = TRUE) %>%
       dplyr::mutate(feature_rank = 1:dplyr::n()) %>%
       dplyr::select(-.data$group2)
   }
   if (method == 'deseq') {
-    res <- dplyr::filter(res, !is.na(.data$log2FoldChange), .data$log2FoldChange < 0) %>%
+    res <- dplyr::filter(res, !is.na(.data$log2FoldChange), .data$log2FoldChange > 0) %>%
       dplyr::group_by(.data$group1) %>%
       dplyr::arrange(.data$group1, .data$pvalue, .data$stat, .by_group = TRUE) %>%
       dplyr::mutate(feature_rank = 1:dplyr::n()) %>%
       dplyr::select(-.data$group2)
   }
   if (method == 'limma') {
-    res <- dplyr::filter(res, .data$logFC < 0) %>%
+    res <- dplyr::filter(res, .data$logFC > 0) %>%
       dplyr::group_by(.data$group1) %>%
       dplyr::arrange(.data$group1, .data$P.Value, -.data$B, .by_group = TRUE) %>%
       dplyr::mutate(feature_rank = 1:dplyr::n()) %>%

@@ -16,10 +16,11 @@ FindAllMarkers2(
 \arguments{
 \item{object}{Input object (of class Seurat, SingleCellExperiment, dgCMatrix, or matrix)}
 
-\item{meta_data}{Data frame of meta data; can be NULL if object is Seurat; default is NULL}
+\item{meta_data}{Data frame of meta data; can be NULL if object is Seurat or
+SingleCellExperiment and cell identities are set; default is NULL}
 
 \item{group_column}{String or integer indicating what column of meta_data to use as group indicator;
-if NULL, then the function tries to find an appropriate column; default is NULL}
+if NULL, the object cell identities are used; default is NULL}
 
 \item{replicate_column}{String or integer indicating what column of meta_data
 to use as replicate indicator; default is NULL}

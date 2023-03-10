@@ -33,7 +33,10 @@ library(ggrepel)
 
 ## Introduction
 
-This document is an introduction to the `scDE` R package - a package that provides wrapper functions to use bulk RNA-seq differential expression methods with single-cell data.
+`scDE` is an R package that allows bulk RNA-seq differential expression methods to be used with single-cell data. It is a light wrapper around 
+[`DESeq2`](https://doi.org/doi:10.18129/B9.bioc.DESeq2), 
+[`edgeR`](https://doi.org/doi:10.18129/B9.bioc.edgeR), and 
+[`limma`](https://doi.org/doi:10.18129/B9.bioc.limma), similar to the [`Libra`](https://github.com/neurorestore/Libra) package. In contrast to `Libra`, `scDE` focuses on a few DE methods and will assign cells to pseudo-replicates if no true replicates are available.
 
 All `scDE` functionality is contained in one function - `findDE()`. It has one mandatory input argument: `object`, which may be of class
 
@@ -83,14 +86,15 @@ DimPlot(s)
 de_results <- findDE(object = s)
 ```
 
-In this case, the output is one large data frame with the results for all three comparisons for all genes in the input. The first column always shows the feature. The last columns are `'group1'` and `'group2'` and indicate the comparison that was done. The remaining columns are specific to the test method that was used, but always include some form of p-value, FDR-adjusted p-value, statistic, mean expression, and log-foldchange.
+In this case, the output is one large data frame with the results for all three comparisons for all genes in the input. The first column always shows the feature. The last columns are `'group1'` and `'group2'` and indicate the comparison that was done. The remaining columns are specific to the test method that was used, but always include some form of p-value, FDR-adjusted p-value, statistic, mean expression, and log-foldchange. The log-foldchange values are estimates of the form log2(group1/group2) - details will depend on the method chosen.
+
 
 There are as many rows per comparison, as there were genes in the input
 ```{r}
 table(paste(de_results$group1, de_results$group2, sep = ' vs '))
 ```
 
-The order of the output is by comparison, then by gene (as in input)
+The order of the output is by comparison, then by p-value, then by test statistic. Ordering can be turned off with `order_results = FALSE`
 ```{r}
 head(de_results)
 ```
@@ -103,10 +107,10 @@ ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
   facet_wrap(~ comp, scales = 'free')
 ```
 
-For a given comparison, the genes higher in the first group will be assigned negative fold changes. Below we mark the top 5 per comparison.
+For a given comparison, the genes higher in the first group will be assigned positive fold changes. Below we mark the top 5 per comparison.
 
 ```{r, fig.width = 10, fig.height=3.3, out.width='100%'}
-top_DE <- filter(de_results, logFC < 0) %>%
+top_DE <- filter(de_results, logFC > 0) %>%
       group_by(group1) %>%
       arrange(PValue, -F, .by_group = TRUE) %>%
       mutate(feature_rank = 1:dplyr::n()) %>%
@@ -119,6 +123,8 @@ ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
 ```
 
 ### One group vs another
+
+To compare two specific groups, use a character vector of length two as the `'compare'` argument.
 
 ```{r}
 de_results <- findDE(object = s, compare = c('T CELLS', 'B CELLS'))
@@ -143,6 +149,7 @@ An example of a count matrix and meta data as input.
 # extract the counts and meta data from our example Seurat object
 counts <- s$RNA@counts
 meta_data <- data.frame(celltype = Idents(s))
+# use matrix and data frame as input to findDE
 de_results <- findDE(object = counts, meta_data = meta_data, 
                      group_column = 'celltype', compare = c('T CELLS', 'B CELLS'))
 head(de_results)
@@ -151,7 +158,7 @@ head(de_results)
 
 ## Finding markers
 
-To quickly find all marker features for a given object, `scDE` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for negative fold-change and orders the results by p-value and statistic. 
+To quickly find all marker features for a given object, `scDE` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for positive fold-change and orders the results by p-value and test statistic. 
 
 ```{r}
 marker_results <- FindAllMarkers2(object = s)
@@ -169,7 +176,7 @@ Note that every comparison is run single-threaded, but multiple comparisons will
 
 ## Progress updates
 
-For reporting progress updates, `scDE` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
+For reporting progress updates, `scDE` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on in an R session: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
 See more details at the [`progressr` website](https://progressr.futureverse.org)
 
 ## Session info 

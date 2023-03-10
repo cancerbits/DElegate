@@ -11,16 +11,18 @@ findDE(
   replicate_column = NULL,
   compare = "each_vs_rest",
   method = "edger",
+  order_results = TRUE,
   verbosity = 1
 )
 }
 \arguments{
 \item{object}{Input object (of class Seurat, SingleCellExperiment, dgCMatrix, or matrix)}
 
-\item{meta_data}{Data frame of meta data; can be NULL if object is Seurat; default is NULL}
+\item{meta_data}{Data frame of meta data; can be NULL if object is Seurat or
+SingleCellExperiment and cell identities are set; default is NULL}
 
 \item{group_column}{String or integer indicating what column of meta_data to use as group indicator;
-if NULL, then the function tries to find an appropriate column; default is NULL}
+if NULL, the object cell identities are used; default is NULL}
 
 \item{replicate_column}{String or integer indicating what column of meta_data
 to use as replicate indicator; default is NULL}
@@ -28,6 +30,10 @@ to use as replicate indicator; default is NULL}
 \item{compare}{Specifies which groups to compare - see details; default is 'each_vs_rest'}
 
 \item{method}{DE method to use; default is edger}
+
+\item{order_results}{Whether to order the results by comparison, then by p-value, then
+by test statistic. If FALSE, results will be ordered by comparison only, genes remain
+in the order as in the input. Default is TRUE}
 
 \item{verbosity}{Integer controlling how many messages the function prints;
 0 is silent, 1 prints some messages, 2 prints more messages}

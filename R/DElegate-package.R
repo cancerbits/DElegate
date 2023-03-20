@@ -1,7 +1,7 @@
-#' scDE
+#' DElegate
 #'
 #' Differential expression analysis for single-cell RNA-seq data
 #'
-#' @name scDE
+#' @name DElegate
 #' @docType package
 NULL

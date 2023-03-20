@@ -3,7 +3,7 @@ test_that("findDE works", {
   set.seed(42)
 
   # default with sparse matrix input
-  counts <- scDE::pbmc$counts
-  meta_data <- scDE::pbmc$meta_data
+  counts <- DElegate::pbmc$counts
+  meta_data <- DElegate::pbmc$meta_data
   res <- findDE(object = counts, meta_data = meta_data, group_column = 'celltype')
 })

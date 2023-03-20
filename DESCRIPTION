@@ -1,7 +1,7 @@
-Package: scDE
+Package: DElegate
 Type: Package
 Title: Differential expression analysis for single-cell RNA-seq data
-Version: 0.9.1
+Version: 0.9.2
 Authors@R: person(given = 'Christoph', family = 'Hafemeister', email = 'christoph.hafemeister@ccri.at', role = c('aut', 'cre'), comment = c(ORCID = '0000-0001-6365-8254'))
 Description: Wrapper and helper functions to use bulk RNA-seq differential expression methods with single-cell data.
 License: GPL-3 | file LICENSE

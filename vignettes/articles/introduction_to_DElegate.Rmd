@@ -1,5 +1,5 @@
 ---
-title: "Introduction to scDE"
+title: "Introduction to DElegate"
 author: "Christoph Hafemeister"
 date: "`r Sys.Date()`"
 output:
@@ -26,19 +26,19 @@ s <- readRDS(file = 'scratch/10k_pbmc_seurat.Rds')
 ```{r setup}
 library(dplyr)
 library(Seurat)
-library(scDE)
+library(DElegate)
 library(ggplot2)
 library(ggrepel)
 ```
 
 ## Introduction
 
-`scDE` is an R package that allows bulk RNA-seq differential expression methods to be used with single-cell data. It is a light wrapper around 
+`DElegate` is an R package that allows bulk RNA-seq differential expression methods to be used with single-cell data. It is a light wrapper around 
 [`DESeq2`](https://doi.org/doi:10.18129/B9.bioc.DESeq2), 
 [`edgeR`](https://doi.org/doi:10.18129/B9.bioc.edgeR), and 
-[`limma`](https://doi.org/doi:10.18129/B9.bioc.limma), similar to the [`Libra`](https://github.com/neurorestore/Libra) package. In contrast to `Libra`, `scDE` focuses on a few DE methods and will assign cells to pseudo-replicates if no true replicates are available.
+[`limma`](https://doi.org/doi:10.18129/B9.bioc.limma), similar to the [`Libra`](https://github.com/neurorestore/Libra) package. In contrast to `Libra`, `DElegate` focuses on a few DE methods and will assign cells to pseudo-replicates if no true replicates are available.
 
-All `scDE` functionality is contained in one function - `findDE()`. It has one mandatory input argument: `object`, which may be of class
+All `DElegate` functionality is contained in one function - `findDE()`. It has one mandatory input argument: `object`, which may be of class
 
 * `Seurat` - the count matrix will be extracted from the `'RNA'` assay
 * `SingleCellExperiment` - the count matrix will be extracted via `counts()`
@@ -51,7 +51,7 @@ To indicate the cell group memberships, you have several options, depending on i
 * `SingleCellExperiment` - in the object via `colLables(object)`, or use the `group_column` argument
 * `dgCMatrix`, or `matrix` - use the `meta_data` and `group_column` arguments
 
-`scDE` uses bulk RNA-seq DE methods and relies on replicates. If no true replicates are available, it assigns cells to pseudo-replicates. However, if replicates are available in the input, the `replicate_column` argument can be used to indicate where to find the labels.
+`DElegate` uses bulk RNA-seq DE methods and relies on replicates. If no true replicates are available, it assigns cells to pseudo-replicates. However, if replicates are available in the input, the `replicate_column` argument can be used to indicate where to find the labels.
 
 To tell `findDE()` which cell groups to compare, use the `compare` argument. We provide several ways to set up the comparisons that will be tested:
 
@@ -68,7 +68,7 @@ Finally, there are currently three DE methods supported
 * `'limma'` uses `limma::eBayes(trend = TRUE, robust = TRUE)`
 
 
-For complete details, consult the package documentation: `?scDE::findDE`
+For complete details, consult the package documentation: `?DElegate::findDE`
 
 In the examples below, we use a Seurat object `s` with cell type labels in the identity slot (`Idents(s)`).
 
@@ -158,7 +158,7 @@ head(de_results)
 
 ## Finding markers
 
-To quickly find all marker features for a given object, `scDE` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for positive fold-change and orders the results by p-value and test statistic. 
+To quickly find all marker features for a given object, `DElegate` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for positive fold-change and orders the results by p-value and test statistic. 
 
 ```{r}
 marker_results <- FindAllMarkers2(object = s)
@@ -167,7 +167,7 @@ filter(marker_results, feature_rank < 6)
 
 ## Parallelization
 
-`scDE` supports parallelization via the `future` package. 
+`DElegate` supports parallelization via the `future` package. 
 For example, to use the multicore strategy with 12 workers you may set
 `future::plan(strategy = 'future::multicore', workers = 12)`.
 See more details at the [`future` website](https://future.futureverse.org)
@@ -176,12 +176,12 @@ Note that every comparison is run single-threaded, but multiple comparisons will
 
 ## Progress updates
 
-For reporting progress updates, `scDE` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on in an R session: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
+For reporting progress updates, `DElegate` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on in an R session: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
 See more details at the [`progressr` website](https://progressr.futureverse.org)
 
 ## Session info 
 
-> **_NOTE:_** This document was generated with `scDE` version `r packageVersion(pkg = 'scDE')`
+> **_NOTE:_** This document was generated with `DElegate` version `r packageVersion(pkg = 'DElegate')`
 
 Session info
 ```{r}

@@ -1,4 +1,4 @@
 library(testthat)
-library(scDE)
+library(DElegate)
 
-test_check("scDE")
+test_check("DElegate")

@@ -77,7 +77,9 @@ run_de_one_comp <- function(counts, grouping, replicate_label, comp, method, ord
 run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, method, order_results, verbosity) {
   # keep track of progress if progressr package is installed
   p <- function(x) {
-    message(x)
+    if (verbosity > 0) {
+      message(x)
+    }
     invisible()
   }
   if (requireNamespace("progressr", quietly = TRUE)) {
@@ -98,7 +100,7 @@ run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, m
   }
 
   res <- dplyr::bind_rows(res_list)
-  return(res)
+  return(as.data.frame(res))
 }
 
 # helper to set up list of comparisons
@@ -247,3 +249,29 @@ get_data <- function(object, meta_data, group_column, replicate_column, verbosit
   return(list(counts = counts, grouping = grouping, replicate_label = replicate_label))
 }
 
+
+# for each feature determine fraction of non-zero cells per group
+detection_rate <- function(counts, grouping) {
+  group_levels <- levels(grouping)
+  has_group <- !is.na(grouping)
+  if (inherits(x = counts, what = 'dgCMatrix')) {
+    if (requireNamespace("sparseMatrixStats", quietly = TRUE)) {
+      mat <- sapply(group_levels, function(gr) {
+        sparseMatrixStats::rowMeans2(x = counts > 0, cols = has_group & grouping == gr)
+      })
+    } else {
+      message('Consider installing the "sparseMatrixStats" package for faster pseudobulk aggregation')
+      mat <- sapply(group_levels, function(gr) {
+        Matrix::rowMeans(x = counts[, has_group & grouping == gr, drop = FALSE] > 0)
+      })
+    }
+  } else {
+    tab <- table(grouping)
+    mat <- t(rowsum(x = t((counts[, has_group, drop = FALSE] > 0) + 0),
+                    group = grouping[has_group]) / as.numeric(tab))
+  }
+
+  colnames(mat) <- group_levels
+  rownames(mat) <- rownames(counts)
+  return(mat)
+}

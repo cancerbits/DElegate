@@ -29,7 +29,7 @@ to use as replicate indicator; default is NULL}
 
 \item{compare}{Specifies which groups to compare - see details; default is 'each_vs_rest'}
 
-\item{method}{DE method to use; default is edger}
+\item{method}{DE method to use, one of edger, deseq, limma; default is edger}
 
 \item{order_results}{Whether to order the results by comparison, then by p-value, then
 by test statistic. If FALSE, results will be ordered by comparison only, genes remain
@@ -39,7 +39,21 @@ in the order as in the input. Default is TRUE}
 0 is silent, 1 prints some messages, 2 prints more messages}
 }
 \value{
-A data frame of results
+A data frame of results with the following columns
+\itemize{
+\item \strong{feature} the gene (as given by rownames of input)
+\item \strong{ave_expr} average expression of gene (renamed method specific values; edger: logCPM, deseq: baseMean, limma: Amean)
+\item \strong{log_fc} log fold-change (renamed method specific values; edger: logFC, deseq: log2FoldChange, limma: LogFC)
+\item \strong{stat} test statistic (renamed method specific values; edger: F, deseq: stat, limma: lods)
+\item \strong{pvalue} test p-value
+\item \strong{padj} adjusted p-value (FDR)
+\item \strong{rate1} detection rate in group one (fraction of cells with non-zero counts)
+\item \strong{rate2} detection rate in group two (fraction of cells with non-zero counts)
+\item \strong{group1} comparison group one
+\item \strong{group2} comparison group two
+}
+
+The log fold-change values are estimates of the form log2(group1/group2) - details will depend on the method chosen.
 }
 \description{
 Differential expression tests for single-cell RNA-seq data
@@ -57,3 +71,21 @@ To put multiple groups on either side of a single comparison, use a list of leng
 E.g. \code{compare = list(c('cluster1', 'cluster5'), c('cluster3'))}.
 }
 
+\examples{
+\donttest{
+# Example data
+counts <- DElegate::pbmc$counts
+meta_data <- DElegate::pbmc$meta_data
+
+# Use matrix and meta data as input and perform all "this group vs rest" comparisons
+de_res <- findDE(object = counts,
+                 meta_data = meta_data,
+                 group_column = 'celltype')
+
+# Same with Seurat object as input
+s <- Seurat::CreateSeuratObject(counts = counts, meta.data = meta_data)
+Seurat::Idents(s) <- s$celltype
+de_res <- findDE(object = s)
+}
+
+}

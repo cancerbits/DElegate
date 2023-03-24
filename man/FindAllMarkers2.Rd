@@ -10,6 +10,8 @@ FindAllMarkers2(
   group_column = NULL,
   replicate_column = NULL,
   method = "edger",
+  min_rate = 0.05,
+  min_fc = 1,
   verbosity = 1
 )
 }
@@ -25,14 +27,40 @@ if NULL, the object cell identities are used; default is NULL}
 \item{replicate_column}{String or integer indicating what column of meta_data
 to use as replicate indicator; default is NULL}
 
-\item{method}{DE method to use; default is edger}
+\item{method}{DE method to use, one of edger, deseq, limma; default is edger}
+
+\item{min_rate}{Remove genes from the results that have a detection rate below this threshold; uses the maximum of the groups being compared; default is 0.05}
+
+\item{min_fc}{Remove genes from the results that have a log fold-change below this threshold; default is 1}
 
 \item{verbosity}{Integer controlling how many messages the function prints;
 0 is silent, 1 prints some messages, 2 prints more messages}
 }
 \value{
-A data frame of results
+A data frame of results just as \code{\link[=findDE]{findDE()}}, but with 'feature_rank' column added
 }
 \description{
-This calls [findDE()] with compare = 'each_vs_rest' and filters and orders the results.
+This calls \code{\link[=findDE]{findDE()}} with compare = 'each_vs_rest' and filters and orders the results.
+}
+\section{Details}{
+
+After filtering, adjusted p-values (FDR) are recalculated per comparison.
+}
+
+\examples{
+\donttest{
+# Example data
+counts <- DElegate::pbmc$counts
+meta_data <- DElegate::pbmc$meta_data
+
+# Use matrix and meta data as input
+markers <- FindAllMarkers2(object = counts,
+                           meta_data = meta_data,
+                           group_column = 'celltype')
+
+# Same with Seurat object as input
+s <- Seurat::CreateSeuratObject(counts = counts, meta.data = meta_data)
+Seurat::Idents(s) <- s$celltype
+markers <- FindAllMarkers2(object = s)
+}
 }

@@ -9,13 +9,27 @@
 #' @param replicate_column String or integer indicating what column of meta_data
 #' to use as replicate indicator; default is NULL
 #' @param compare Specifies which groups to compare - see details; default is 'each_vs_rest'
-#' @param method DE method to use; default is edger
+#' @param method DE method to use, one of edger, deseq, limma; default is edger
 #' @param order_results Whether to order the results by comparison, then by p-value, then
 #' by test statistic. If FALSE, results will be ordered by comparison only, genes remain
 #' in the order as in the input. Default is TRUE
 #' @param verbosity Integer controlling how many messages the function prints;
 #' 0 is silent, 1 prints some messages, 2 prints more messages
-#' @returns A data frame of results
+#' @returns A data frame of results with the following columns
+#'
+#' * **feature** the gene (as given by rownames of input)
+#' * **ave_expr** average expression of gene (renamed method specific values; edger: logCPM, deseq: baseMean, limma: Amean)
+#' * **log_fc** log fold-change (renamed method specific values; edger: logFC, deseq: log2FoldChange, limma: LogFC)
+#' * **stat** test statistic (renamed method specific values; edger: F, deseq: stat, limma: lods)
+#' * **pvalue** test p-value
+#' * **padj** adjusted p-value (FDR)
+#' * **rate1** detection rate in group one (fraction of cells with non-zero counts)
+#' * **rate2** detection rate in group two (fraction of cells with non-zero counts)
+#' * **group1** comparison group one
+#' * **group2** comparison group two
+#'
+#' The log fold-change values are estimates of the form log2(group1/group2) - details will depend on the method chosen.
+#'
 #'
 #' @section Details:
 #' Compare groups of cells using DESeq2, edgeR, or limma-trend.
@@ -29,6 +43,23 @@
 #' E.g. \code{compare = list(c('cluster1', 'cluster5'), c('cluster3'))}.
 #'
 #' @export
+#'
+#' @examples
+#' \donttest{
+#' # Example data
+#' counts <- DElegate::pbmc$counts
+#' meta_data <- DElegate::pbmc$meta_data
+#'
+#' # Use matrix and meta data as input and perform all "this group vs rest" comparisons
+#' de_res <- findDE(object = counts,
+#'                  meta_data = meta_data,
+#'                  group_column = 'celltype')
+#'
+#' # Same with Seurat object as input
+#' s <- Seurat::CreateSeuratObject(counts = counts, meta.data = meta_data)
+#' Seurat::Idents(s) <- s$celltype
+#' de_res <- findDE(object = s)
+#' }
 #'
 findDE <- function(object,
                    meta_data = NULL,
@@ -59,18 +90,41 @@ findDE <- function(object,
 #' This calls [findDE()] with compare = 'each_vs_rest' and filters and orders the results.
 #'
 #' @inheritParams findDE
-#' @returns A data frame of results
+#' @param min_rate Remove genes from the results that have a detection rate below this threshold; uses the maximum of the groups being compared; default is 0.05
+#' @param min_fc Remove genes from the results that have a log fold-change below this threshold; default is 1
+#' @returns A data frame of results just as [findDE()], but with 'feature_rank' column added
+#'
+#' @section Details:
+#' After filtering, adjusted p-values (FDR) are recalculated per comparison.
 #'
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #'
 #' @export
 #'
+#' @examples
+#' \donttest{
+#' # Example data
+#' counts <- DElegate::pbmc$counts
+#' meta_data <- DElegate::pbmc$meta_data
+#'
+#' # Use matrix and meta data as input
+#' markers <- FindAllMarkers2(object = counts,
+#'                            meta_data = meta_data,
+#'                            group_column = 'celltype')
+#'
+#' # Same with Seurat object as input
+#' s <- Seurat::CreateSeuratObject(counts = counts, meta.data = meta_data)
+#' Seurat::Idents(s) <- s$celltype
+#' markers <- FindAllMarkers2(object = s)
+#' }
 FindAllMarkers2 <- function(object,
                             meta_data = NULL,
                             group_column = NULL,
                             replicate_column = NULL,
                             method = 'edger',
+                            min_rate = 0.05,
+                            min_fc = 1,
                             verbosity = 1) {
   res <- findDE(object = object,
                 meta_data = meta_data,
@@ -78,30 +132,15 @@ FindAllMarkers2 <- function(object,
                 replicate_column = replicate_column,
                 compare = 'each_vs_rest',
                 method = method,
-                order_results = FALSE,
+                order_results = TRUE,
                 verbosity = verbosity)
-  if (method == 'edger') {
-    res <- dplyr::filter(res, .data$logFC > 0) %>%
+
+    res <- dplyr::filter(res, .data$rate1 >= min_rate | .data$rate2 >= min_rate, .data$log_fc >= min_fc) %>%
       dplyr::group_by(.data$group1) %>%
-      dplyr::arrange(.data$group1, .data$PValue, -.data$F, .by_group = TRUE) %>%
+      dplyr::mutate(padj = stats::p.adjust(.data$pvalue, method = 'fdr')) %>%
       dplyr::mutate(feature_rank = 1:dplyr::n()) %>%
+      dplyr::ungroup() %>%
       dplyr::select(-.data$group2)
-  }
-  if (method == 'deseq') {
-    res <- dplyr::filter(res, !is.na(.data$log2FoldChange), .data$log2FoldChange > 0) %>%
-      dplyr::group_by(.data$group1) %>%
-      dplyr::arrange(.data$group1, .data$pvalue, .data$stat, .by_group = TRUE) %>%
-      dplyr::mutate(feature_rank = 1:dplyr::n()) %>%
-      dplyr::select(-.data$group2)
-  }
-  if (method == 'limma') {
-    res <- dplyr::filter(res, .data$logFC > 0) %>%
-      dplyr::group_by(.data$group1) %>%
-      dplyr::arrange(.data$group1, .data$P.Value, -.data$B, .by_group = TRUE) %>%
-      dplyr::mutate(feature_rank = 1:dplyr::n()) %>%
-      dplyr::select(-.data$group2)
-  }
 
   return(as.data.frame(res))
 }
-

@@ -8,7 +8,7 @@ output:
     toc_float: yes
     code_folding: show
     highlight: pygments
-    df_print: kable
+    df_print: paged
   pdf_document:
     toc: yes
 ---
@@ -86,36 +86,50 @@ DimPlot(s)
 de_results <- findDE(object = s)
 ```
 
-In this case, the output is one large data frame with the results for all three comparisons for all genes in the input. The first column always shows the feature. The last columns are `'group1'` and `'group2'` and indicate the comparison that was done. The remaining columns are specific to the test method that was used, but always include some form of p-value, FDR-adjusted p-value, statistic, mean expression, and log-foldchange. The log-foldchange values are estimates of the form log2(group1/group2) - details will depend on the method chosen.
-
+The output is one large data frame with the results for all three comparisons for all genes. The order of the output is by comparison, then by p-value, then by test statistic. Ordering can be turned off with `order_results = FALSE`
+```{r}
+head(de_results) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
+```
 
 There are as many rows per comparison, as there were genes in the input
 ```{r}
 table(paste(de_results$group1, de_results$group2, sep = ' vs '))
 ```
 
-The order of the output is by comparison, then by p-value, then by test statistic. Ordering can be turned off with `order_results = FALSE`
-```{r}
-head(de_results)
-```
+The output contains the following columns
 
-```{r, fig.width = 10, fig.height=3.3, out.width='100%'}
+* **feature** the gene (as given by rownames of input)
+* **ave_expr** average expression of gene (renamed method specific values; edger: logCPM, deseq: baseMean, limma: Amean)
+* **log_fc** log fold-change (renamed method specific values; edger: logFC, deseq: log2FoldChange, limma: LogFC)
+* **stat** test statistic (renamed method specific values; edger: F, deseq: stat, limma: lods)
+* **pvalue** test p-value
+* **padj** adjusted p-value (FDR)
+* **rate1** detection rate in group one (fraction of cells with non-zero counts)
+* **rate2** detection rate in group two (fraction of cells with non-zero counts)
+* **group1** comparison group one
+* **group2** comparison group two
+
+The log fold-change values are estimates of the form log2(group1/group2) - details will depend on the method chosen.
+
+We can plot the log fold-change vs FDR for each comparison.
+
+```{r, fig.width = 10, fig.height=3.6, out.width='100%'}
 de_results$comp <- paste(de_results$group1, de_results$group2, sep = ' vs ')
 de_results$comp <- factor(de_results$comp, levels = unique(de_results$comp))
-ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+ggplot(de_results, aes(log_fc, -log10(padj))) +
   geom_point(shape = 16, alpha = 0.2) +
   facet_wrap(~ comp, scales = 'free')
 ```
 
-For a given comparison, the genes higher in the first group will be assigned positive fold changes. Below we mark the top 5 per comparison.
+For a given comparison, the genes higher in the first group will be assigned positive fold-changes. Below we mark the top 5 per comparison, ranked by p-value (the default output of `findDE()`).
 
-```{r, fig.width = 10, fig.height=3.3, out.width='100%'}
-top_DE <- filter(de_results, logFC > 0) %>%
+```{r, fig.width = 10, fig.height=3.6, out.width='100%'}
+top_DE <- filter(de_results, log_fc > 0) %>%
       group_by(group1) %>%
-      arrange(PValue, -F, .by_group = TRUE) %>%
-      mutate(feature_rank = 1:dplyr::n()) %>%
-      slice_min(order_by = feature_rank, n = 5) 
-ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+      slice_head(n = 5)
+ggplot(de_results, aes(log_fc, -log10(padj))) +
   geom_point(shape = 16, alpha = 0.2) +
   geom_point(data = top_DE, shape = 16, size = 2, color = 'deeppink') +
   geom_text_repel(data = top_DE, aes(label = feature)) +
@@ -130,12 +144,11 @@ To compare two specific groups, use a character vector of length two as the `'co
 de_results <- findDE(object = s, compare = c('T CELLS', 'B CELLS'))
 ```
 
-```{r, fig.width = 3, fig.height=3.3, out.width='30%'}
-top_DE <- filter(de_results, logFC != 0) %>%
-  group_by(sign(logFC)) %>%
-  arrange(PValue, -F, .by_group = TRUE) %>%
+```{r, fig.width = 5, fig.height=3.6, out.width='50%'}
+top_DE <- filter(de_results, log_fc != 0) %>%
+  group_by(sign(log_fc)) %>%
   slice_head(n = 5)
-ggplot(de_results, aes(logFC, -log10(AdjPValue))) +
+ggplot(de_results, aes(log_fc, -log10(padj))) +
   geom_point(shape = 16, alpha = 0.2) +
   geom_point(data = top_DE, shape = 16, size = 2, color = 'deeppink') +
   geom_text_repel(data = top_DE, aes(label = feature)) +
@@ -152,32 +165,89 @@ meta_data <- data.frame(celltype = Idents(s))
 # use matrix and data frame as input to findDE
 de_results <- findDE(object = counts, meta_data = meta_data, 
                      group_column = 'celltype', compare = c('T CELLS', 'B CELLS'))
-head(de_results)
+head(de_results) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
+```
+
+An example using a SingleCellExperiment as input.
+```{r}
+sce <- SingleCellExperiment::SingleCellExperiment(list(counts=counts))
+SingleCellExperiment::colLabels(sce) <- meta_data$celltype
+de_results <- findDE(object = sce, compare = c('T CELLS', 'B CELLS'))
+head(de_results) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
 ```
 
 
 ## Finding markers
 
-To quickly find all marker features for a given object, `DElegate` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for positive fold-change and orders the results by p-value and test statistic. 
+To quickly find all marker features for a given object, `DElegate` provides the convenience function `FindAllMarkers2()` - a light wrapper around `findDE(compare = 'each_vs_rest')` that filters for positive fold-change and orders the results by p-value and test statistic. Note that by default this function applies a post-test filter that removes genes with low detection rate (`min_rate = 0.05`) and low log fold-change (`min_fc = 1`). 
 
 ```{r}
 marker_results <- FindAllMarkers2(object = s)
-filter(marker_results, feature_rank < 6)
+filter(marker_results, feature_rank < 6) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
 ```
 
 ## Parallelization
 
 `DElegate` supports parallelization via the `future` package. 
-For example, to use the multicore strategy with 12 workers you may set
-`future::plan(strategy = 'future::multicore', workers = 12)`.
+For example, to use the multicore strategy with 12 workers you may call
+`future::plan(strategy = 'future::multicore', workers = 12)` before DE testing.
 See more details at the [`future` website](https://future.futureverse.org)
 
 Note that every comparison is run single-threaded, but multiple comparisons will be done in parallel.
+
+**Trouble shooting:** You may get an error regarding `future.globals.maxSize`, the maximum allowed total size of global variables. The default value is 500 MiB and may be too small. You may increase it, for example to 8GB, using `options(future.globals.maxSize = 8 * 10^9)`.
 
 ## Progress updates
 
 For reporting progress updates, `DElegate` relies on the `progressr` package. By default no progress updates are rendered, but may be turned on in an R session: `progressr::handlers(global = TRUE)` and its default presentation modified (e.g. `progressr::handlers(progressr::handler_progress)`). 
 See more details at the [`progressr` website](https://progressr.futureverse.org)
+
+## Example: Seurat DE vignette
+
+Here we perform the same DE tasks as in the [Seurat DE vignette](https://satijalab.org/seurat/articles/de_vignette.html).
+
+```{r}
+library(Seurat)
+library(SeuratData)
+pbmc <- LoadData("pbmc3k", type = "pbmc3k.final")
+```
+
+Find differentially expressed features between CD14+ and FCGR3A+ Monocytes
+
+```{r}
+de_res <- findDE(object = pbmc, compare = c("CD14+ Mono", "FCGR3A+ Mono"))
+head(de_res, 10) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
+```
+
+We can omit the second part of the comparison argument to find CD14+ Mono markers relative to all other cells.
+
+```{r}
+de_res <- findDE(object = pbmc, compare = "CD14+ Mono")
+# exclude negative log fold-change
+filter(de_res, log_fc > 0) %>% head(10) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
+```
+
+Note that we do not suggest prefiltering. A postfilter using log fold-change and/or detection rate may be appropriate instead.
+
+Just as in the examples above, we can find markers for all groups at once with `FindAllMarkers2`. 
+
+```{r}
+marker_results <- FindAllMarkers2(object = pbmc)
+filter(marker_results, feature_rank < 6) %>%
+  DT::datatable() %>%
+  DT::formatSignif(columns = 2:8)
+```
+
 
 ## Session info 
 

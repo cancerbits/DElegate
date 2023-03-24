@@ -68,11 +68,13 @@ For complete details, consult the package documentation: `?DElegate::findDE`.
 ## Parallelization
 
 `DElegate` supports parallelization via the `future` package. 
-For example, to use the multicore strategy with 12 workers you may set
-`future::plan(strategy = 'future::multicore', workers = 12)`.
+For example, to use the multicore strategy with 12 workers you may call
+`future::plan(strategy = 'future::multicore', workers = 12)` before DE testing.
 See more details at the [`future` website](https://future.futureverse.org)
 
 Note that every comparison is run single-threaded, but multiple comparisons will be done in parallel.
+
+**Trouble shooting:** You may get an error regarding `future.globals.maxSize`, the maximum allowed total size of global variables. The default value is 500 MiB and may be too small. You may increase it, for example to 8GB, using `options(future.globals.maxSize = 8 * 10^9)`.
 
 ## Progress updates
 

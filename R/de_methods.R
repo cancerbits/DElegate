@@ -36,6 +36,13 @@ run_de_simple <- function(counts, grouping, replicate_label, method, order_resul
     }
     res <- run_limma_simple(pb$counts, pb$md$grouping, order_results)
   }
+
+  # add some feature-level stats
+  det_rate <- detection_rate(counts, grouping)[res$feature, ]
+  colnames(det_rate) <- c('rate1', 'rate2')
+  rownames(det_rate) <- NULL
+  res <- cbind(res, det_rate)
+
   return(res)
 }
 
@@ -44,7 +51,8 @@ run_deseq_simple <- function(counts, grouping, order_results) {
   dds <- DESeq2::DESeqDataSetFromMatrix(counts, data.frame(grouping = grouping), ~ grouping)
   dds <- DESeq2::DESeq(dds, test = 'Wald', quiet = TRUE)
   res <- DESeq2::results(dds, tidy = TRUE) %>%
-    dplyr::rename('feature' = 'row')
+    dplyr::rename('feature' = 'row', 'ave_expr' = 'baseMean', 'log_fc' = 'log2FoldChange') %>%
+    dplyr::select(.data$feature, .data$ave_expr, .data$log_fc, .data$stat, .data$pvalue, .data$padj)
   if (order_results) {
     res <- dplyr::arrange(res, .data$pvalue, -abs(.data$stat))
   }
@@ -64,9 +72,11 @@ run_edger_simple <- function(counts, grouping, order_results) {
 
   res <- test_res$table %>%
     tibble::rownames_to_column(var = 'feature') %>%
-    dplyr::mutate(AdjPValue = stats::p.adjust(.data$PValue, method = 'fdr'))
+    dplyr::rename('ave_expr' = 'logCPM', 'log_fc' = 'logFC', 'stat' = 'F', 'pvalue' = 'PValue') %>%
+    dplyr::mutate(padj = stats::p.adjust(.data$pvalue, method = 'fdr')) %>%
+    dplyr::select(.data$feature, .data$ave_expr, .data$log_fc, .data$stat, .data$pvalue, .data$padj)
   if (order_results) {
-    res <- dplyr::arrange(res, .data$PValue, -.data$F)
+    res <- dplyr::arrange(res, .data$pvalue, -.data$stat)
   }
   return(res)
 }
@@ -81,15 +91,15 @@ run_limma_simple <- function(counts, grouping, order_results) {
   fit <- limma::lmFit(y, design)
   fit <- limma::eBayes(fit, trend = allow_trend, robust = allow_trend)
   res <- data.frame(feature = rownames(fit$p.value),
-                    logFC = fit$coefficients[, n],
-                    AveExpr = fit$Amean,
-                    t = fit$t[, n],
-                    P.Value = fit$p.value[, n],
-                    adj.P.Val = stats::p.adjust(fit$p.value[, n], method = 'fdr'),
-                    B = fit$lods[, n],
+                    ave_expr = fit$Amean,
+                    log_fc = fit$coefficients[, n],
+                    stat = fit$lods[, n],
+                    pvalue = fit$p.value[, n],
+                    padj = stats::p.adjust(fit$p.value[, n], method = 'fdr'),
                     row.names = NULL)
+  res <- tibble::as_tibble(res)
   if (order_results) {
-    res <- dplyr::arrange(res, .data$P.Value, -.data$B)
+    res <- dplyr::arrange(res, .data$pvalue, -.data$stat)
   }
   return(res)
 }

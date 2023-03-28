@@ -218,7 +218,7 @@ library(SeuratData)
 pbmc <- LoadData("pbmc3k", type = "pbmc3k.final")
 ```
 
-Find differentially expressed features between CD14+ and FCGR3A+ Monocytes
+Find differentially expressed features between CD14+ and FCGR3A+ Monocytes (this is the alternative to `Seurat::FindMarkers(pbmc, ident.1 = "CD14+ Mono", ident.2 = "FCGR3A+ Mono")`)
 
 ```{r}
 de_res <- findDE(object = pbmc, compare = c("CD14+ Mono", "FCGR3A+ Mono"))
@@ -227,7 +227,7 @@ head(de_res, 10) %>%
   DT::formatSignif(columns = 2:8)
 ```
 
-We can omit the second part of the comparison argument to find CD14+ Mono markers relative to all other cells.
+We can omit the second part of the comparison argument to find CD14+ Mono markers relative to all other cells (alternative to `Seurat::FindMarkers(pbmc, ident.1 = "CD14+ Mono", ident.2 = NULL, only.pos = TRUE)`).
 
 ```{r}
 de_res <- findDE(object = pbmc, compare = "CD14+ Mono")
@@ -239,7 +239,7 @@ filter(de_res, log_fc > 0) %>% head(10) %>%
 
 Note that we do not suggest prefiltering. A postfilter using log fold-change and/or detection rate may be appropriate instead.
 
-Just as in the examples above, we can find markers for all groups at once with `FindAllMarkers2`. 
+Just as in the examples above, we can find markers for all groups at once with `FindAllMarkers2`. By default this wrapper around `findDE()` removes genes with detection rate < 0.05 (maximum across groups compared) and low log fold-change (< 1). This is an alternative to `Seurat::FindAllMarkers(pbmc)`.
 
 ```{r}
 marker_results <- FindAllMarkers2(object = pbmc)

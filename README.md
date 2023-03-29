@@ -4,6 +4,8 @@
 
 Developed by Christoph Hafemeister in the [Developmental Cancer Genomics](https://cancerbits.github.io) group at [St. Anna Children's Cancer Research Institute (CCRI)](https://ccri.at)
 
+Motivated by our observation that [single-cell RNA-seq differential expression tests within a sample should use pseudo-bulk data of pseudo-replicates](https://doi.org/10.1101/2023.03.28.534443).
+
 ## Quick start
 
 Install from GitHub

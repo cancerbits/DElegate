@@ -3,7 +3,7 @@
 # and a grouping factor (two levels assumed)
 
 #' @importFrom magrittr %>%
-run_de_simple <- function(counts, grouping, replicate_label, method, order_results, verbosity) {
+run_de_simple <- function(counts, grouping, replicate_label, method, order_results, lfc_shrinkage, verbosity) {
   if (!any(method %in% c('deseq', 'edger', 'limma')) | length(method) != 1) {
     stop("method needs to be of length one and in c('deseq', 'edger', 'limma')")
   }
@@ -14,6 +14,10 @@ run_de_simple <- function(counts, grouping, replicate_label, method, order_resul
     message(paste0(c('group vs replicate table', utils::capture.output(pb$md)), collapse = "\n"))
   }
 
+  if (verbosity > 0 && !is.null(lfc_shrinkage) && method == 'deseq') {
+    message(sprintf('calculate shrunken log2 fold changes of type %s', lfc_shrinkage))
+  }
+
   # the DE methods we use, treat the first group level as reference
   # we want this to be group2, so relevel here
   pb$md$grouping <- stats::relevel(pb$md$grouping, ref = levels(pb$md$grouping)[2])
@@ -22,7 +26,7 @@ run_de_simple <- function(counts, grouping, replicate_label, method, order_resul
     if (!requireNamespace("DESeq2", quietly = TRUE)) {
       stop('DESeq2 package not found - please install it to use "method = deseq"')
     }
-    res <- run_deseq_simple(pb$counts, pb$md$grouping, order_results)
+    res <- run_deseq_simple(pb$counts, pb$md$grouping, order_results, lfc_shrinkage)
   }
   if (method == 'edger') {
     if (!requireNamespace("edgeR", quietly = TRUE)) {
@@ -47,12 +51,30 @@ run_de_simple <- function(counts, grouping, replicate_label, method, order_resul
 }
 
 
-run_deseq_simple <- function(counts, grouping, order_results) {
+run_deseq_simple <- function(counts, grouping, order_results, lfc_shrinkage) {
   dds <- DESeq2::DESeqDataSetFromMatrix(counts, data.frame(grouping = grouping), ~ grouping)
   dds <- DESeq2::DESeq(dds, test = 'Wald', quiet = TRUE)
-  res <- DESeq2::results(dds, tidy = TRUE) %>%
-    dplyr::rename('feature' = 'row', 'ave_expr' = 'baseMean', 'log_fc' = 'log2FoldChange') %>%
-    dplyr::select(.data$feature, .data$ave_expr, .data$log_fc, .data$stat, .data$pvalue, .data$padj)
+  if (is.null(lfc_shrinkage)) {
+    res <- DESeq2::results(dds)
+  }
+  else {
+    if (lfc_shrinkage %in% c("apeglm", "ashr", "normal")) {
+      coef_name <- DESeq2::resultsNames(dds)[2]
+      res <- DESeq2::lfcShrink(dds, coef = coef_name, type = lfc_shrinkage)
+    }
+    else {
+      stop('lfc_shrinkage should be set to NULL or one of "apeglm", "ashr", "normal"')
+    }
+  }
+  res <- as.data.frame(res) %>%
+    tibble::rownames_to_column(var = 'feature') %>%
+    dplyr::rename('ave_expr' = 'baseMean', 'log_fc' = 'log2FoldChange')
+  # some shrinkage methods drop the stat column - add NA
+  if (!'stats' %in% colnames(res)) {
+    res <- tibble::add_column(res, stat = NA_real_, .before = 'pvalue')
+  }
+  # select the columns we want to return
+  res <- dplyr::select(res, .data$feature, .data$ave_expr, .data$log_fc, .data$stat, .data$pvalue, .data$padj)
   if (order_results) {
     res <- dplyr::arrange(res, .data$pvalue, -abs(.data$stat))
   }

@@ -13,6 +13,8 @@
 #' @param order_results Whether to order the results by comparison, then by p-value, then
 #' by test statistic. If FALSE, results will be ordered by comparison only, genes remain
 #' in the order as in the input. Default is TRUE
+#' @param lfc_shrinkage The type of logFC shrinkage to apply to the results; only used with method deseq;
+#' may be set to one of "apeglm", "ashr", "normal"; default is NULL for no shrinkage
 #' @param verbosity Integer controlling how many messages the function prints;
 #' 0 is silent, 1 prints some messages, 2 prints more messages
 #' @returns A data frame of results with the following columns
@@ -68,6 +70,7 @@ findDE <- function(object,
                    compare = 'each_vs_rest',
                    method = 'edger',
                    order_results = TRUE,
+                   lfc_shrinkage = NULL,
                    verbosity = 1) {
   # extract the data from the input object
   de_data <- get_data(object, meta_data, group_column, replicate_column, verbosity)
@@ -82,6 +85,7 @@ findDE <- function(object,
                      comparisons = comparisons,
                      method = method,
                      order_results = order_results,
+                     lfc_shrinkage = lfc_shrinkage,
                      verbosity = verbosity)
 }
 
@@ -125,6 +129,7 @@ FindAllMarkers2 <- function(object,
                             method = 'edger',
                             min_rate = 0.05,
                             min_fc = 1,
+                            lfc_shrinkage = NULL,
                             verbosity = 1) {
   res <- findDE(object = object,
                 meta_data = meta_data,
@@ -133,6 +138,7 @@ FindAllMarkers2 <- function(object,
                 compare = 'each_vs_rest',
                 method = method,
                 order_results = TRUE,
+                lfc_shrinkage = lfc_shrinkage,
                 verbosity = verbosity)
 
     res <- dplyr::filter(res, .data$rate1 >= min_rate | .data$rate2 >= min_rate, .data$log_fc >= min_fc) %>%

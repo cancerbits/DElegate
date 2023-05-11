@@ -12,6 +12,7 @@ FindAllMarkers2(
   method = "edger",
   min_rate = 0.05,
   min_fc = 1,
+  lfc_shrinkage = NULL,
   verbosity = 1
 )
 }
@@ -32,6 +33,9 @@ to use as replicate indicator; default is NULL}
 \item{min_rate}{Remove genes from the results that have a detection rate below this threshold; uses the maximum of the groups being compared; default is 0.05}
 
 \item{min_fc}{Remove genes from the results that have a log fold-change below this threshold; default is 1}
+
+\item{lfc_shrinkage}{The type of logFC shrinkage to apply to the results; only used with method deseq;
+may be set to one of "apeglm", "ashr", "normal"; default is NULL for no shrinkage}
 
 \item{verbosity}{Integer controlling how many messages the function prints;
 0 is silent, 1 prints some messages, 2 prints more messages}

@@ -12,6 +12,7 @@ findDE(
   compare = "each_vs_rest",
   method = "edger",
   order_results = TRUE,
+  lfc_shrinkage = NULL,
   verbosity = 1
 )
 }
@@ -34,6 +35,9 @@ to use as replicate indicator; default is NULL}
 \item{order_results}{Whether to order the results by comparison, then by p-value, then
 by test statistic. If FALSE, results will be ordered by comparison only, genes remain
 in the order as in the input. Default is TRUE}
+
+\item{lfc_shrinkage}{The type of logFC shrinkage to apply to the results; only used with method deseq;
+may be set to one of "apeglm", "ashr", "normal"; default is NULL for no shrinkage}
 
 \item{verbosity}{Integer controlling how many messages the function prints;
 0 is silent, 1 prints some messages, 2 prints more messages}

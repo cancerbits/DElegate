@@ -10,6 +10,7 @@ findDE(
   group_column = NULL,
   replicate_column = NULL,
   compare = "each_vs_rest",
+  compare_is_ref = FALSE,
   method = "edger",
   order_results = TRUE,
   lfc_shrinkage = NULL,
@@ -29,6 +30,9 @@ if NULL, the object cell identities are used; default is NULL}
 to use as replicate indicator; default is NULL}
 
 \item{compare}{Specifies which groups to compare - see details; default is 'each_vs_rest'}
+
+\item{compare_is_ref}{If set to TRUE, the compare parameter is interpreted as the reference group
+level and all other levels are compared to this one; default is FALSE}
 
 \item{method}{DE method to use, one of edger, deseq, limma; default is edger}
 
@@ -72,7 +76,10 @@ group vs all remaining cells. \code{'all_vs_all'}, also does multiple comparison
 covering all group pairs. If compare is set to a length two character vector, e.g.
 \code{c('T-cells', 'B-cells')}, one comparison between those two groups is done.
 To put multiple groups on either side of a single comparison, use a list of length two.
-E.g. \code{compare = list(c('cluster1', 'cluster5'), c('cluster3'))}.
+E.g. \code{compare = list(c('cluster1', 'cluster5'), c('cluster3'))}. Finally, if
+compare is a character vector of length one and \code{compare_is_ref = TRUE} is set,
+the compare parameter is interpreted as the reference group level and all other
+levels are compared to this one.
 }
 
 \examples{

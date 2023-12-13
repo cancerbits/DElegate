@@ -106,7 +106,7 @@ run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, m
 # helper to set up list of comparisons
 # each comparison is a list
 # name1, name2, labels grp1, labels grp2
-set_up_comparisons <- function(group_levels, compare, verbosity) {
+set_up_comparisons <- function(group_levels, compare, compare_is_ref, verbosity) {
   n <- length(group_levels)
   if (n < 2) {
     stop('Did not find two or more group levels - make sure grouping variable is a factor with at least two levels')
@@ -139,8 +139,13 @@ set_up_comparisons <- function(group_levels, compare, verbosity) {
       if (!all(compare %in% group_levels)) {
         stop('Group 1 not found - please check your compare argument')
       }
-      x <- compare[1]
-      comparisons <- list(list(x, paste0('not ', x), x, setdiff(group_levels, x)))
+      if (compare_is_ref) {
+        ref <- compare[1]
+        comparisons <- lapply(setdiff(group_levels, ref), function(x) list(x, ref, x, ref))
+      } else {
+        x <- compare[1]
+        comparisons <- list(list(x, paste0('not ', x), x, setdiff(group_levels, x)))
+      }
       return(comparisons)
     }
     if (length(compare) == 2) {

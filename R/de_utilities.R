@@ -90,7 +90,7 @@ run_de_comparisons <- function(counts, grouping, replicate_label, comparisons, m
     res_list <- future.apply::future_lapply(comparisons, function(comp) {
       p(sprintf('Comparing %s vs %s', comp[[1]], comp[[2]]))
       run_de_one_comp(counts, grouping, replicate_label, comp, method, order_results, lfc_shrinkage, verbosity)
-    }, future.seed = NA)
+    }, future.seed = TRUE)
   } else {
     message('Consider installing the "future.apply" package for parallelization')
     res_list <- lapply(comparisons, function(comp) {

@@ -202,7 +202,7 @@ get_data <- function(object, meta_data, group_column, replicate_column, verbosit
     if (!is.null(meta_data) & verbosity > 0) {
       message('input is Seurat object - the meta_data argument will be ignored')
     }
-    if (packageVersion("SeuratObject") >= "5.0.0") {
+    if (utils::packageVersion("SeuratObject") >= "5.0.0") {
         counts <- SeuratObject::GetAssayData(
             object[["RNA"]],
             layer = "counts"

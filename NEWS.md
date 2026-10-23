@@ -1,3 +1,10 @@
+# DElegate 1.2.2
+
+## Bug fixes
+
+* Fixes `GetAssayData()` compatibility with SeuratObject 5 while retaining support for older versions.
+
+
 # DElegate 1.2.0
 
 ## New features
